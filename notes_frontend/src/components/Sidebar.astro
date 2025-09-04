@@ -1,0 +1,117 @@
+---
+/**
+ * PUBLIC_INTERFACE
+ * Sidebar with tag and category filters.
+ * Props:
+ *  - tags: Record<string, number>
+ *  - categories: Record<string, number>
+ *  - activeTag?: string
+ *  - activeCategory?: string
+ */
+const { tags = {}, categories = {}, activeTag = '', activeCategory = '' } = Astro.props;
+---
+<aside class="sidebar card">
+  <div class="section">
+    <div class="section-title">
+      <span>Tags</span>
+      <button class="btn ghost small" id="clear-tag" aria-label="Clear tag filter">Clear</button>
+    </div>
+    <div class="chips">
+      {Object.keys(tags).length === 0 ? (
+        <div class="muted">No tags</div>
+      ) : (
+        Object.entries(tags).map(([name, count]) => (
+          <button class={"chip " + (name === activeTag ? "active" : "")} data-type="tag" data-value={name}>
+            #{name}
+            <span class="count">{count}</span>
+          </button>
+        ))
+      )}
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span>Categories</span>
+      <button class="btn ghost small" id="clear-category" aria-label="Clear category filter">Clear</button>
+    </div>
+    <div class="chips">
+      {Object.keys(categories).length === 0 ? (
+        <div class="muted">No categories</div>
+      ) : (
+        Object.entries(categories).map(([name, count]) => (
+          <button class={"chip " + (name === activeCategory ? "active" : "")} data-type="category" data-value={name}>
+            {name}
+            <span class="count">{count}</span>
+          </button>
+        ))
+      )}
+    </div>
+  </div>
+</aside>
+
+<style>
+.sidebar {
+  margin: 16px;
+  padding: 16px;
+  height: calc(100vh - var(--nav-height) - 32px);
+  position: sticky;
+  top: calc(var(--nav-height) + 16px);
+  overflow: auto;
+}
+.section + .section { margin-top: 24px; }
+.section-title {
+  display: flex; align-items: center; justify-content: space-between;
+  font-weight: 600; color: var(--text-muted); margin-bottom: 10px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+.chip .count {
+  font-size: 12px; color: var(--text-muted); background: #eef2ff; padding: 2px 6px; border-radius: 999px;
+}
+.chip.active {
+  border-color: var(--color-primary); background: rgba(52,152,219,.1);
+}
+.muted { color: var(--text-muted); font-size: 14px; }
+.btn.small { padding: 6px 8px; font-size: 12px; }
+@media (max-width: 768px) {
+  .sidebar {
+    height: auto; position: relative; top: 0; margin: 12px; padding: 12px;
+  }
+}
+</style>
+
+<script>
+  function init() {
+    function updateFilter(param, value) {
+      const url = new URL(window.location.href);
+      if (value) url.searchParams.set(param, value);
+      else url.searchParams.delete(param);
+      window.location.href = url.toString();
+    }
+
+    document.querySelectorAll('.chip').forEach((el) => {
+      el.addEventListener('click', () => {
+        const type = el.getAttribute('data-type');
+        const value = el.getAttribute('data-value') || '';
+        if (type === 'tag') updateFilter('tag', value);
+        if (type === 'category') updateFilter('category', value);
+      });
+    });
+
+    const clearTag = document.getElementById('clear-tag');
+    const clearCategory = document.getElementById('clear-category');
+    clearTag?.addEventListener('click', () => updateFilter('tag', ''));
+    clearCategory?.addEventListener('click', () => updateFilter('category', ''));
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+</script>
