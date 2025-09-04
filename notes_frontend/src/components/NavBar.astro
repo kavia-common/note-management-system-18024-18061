@@ -1,0 +1,60 @@
+---
+/**
+ * PUBLIC_INTERFACE
+ * Top navigation bar with app title, search input, and user actions.
+ * Props:
+ *  - userName: string
+ */
+const { userName = '' } = Astro.props;
+---
+<nav class="nav" data-nav-root>
+  <div class="left">
+    <div class="logo">Notes</div>
+  </div>
+  <div class="center">
+    <input id="global-search" class="input search" type="search" placeholder="Search notes..." />
+  </div>
+  <div class="right">
+    <span class="user badge" title="Logged in user">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-5.33 0-8 2.67-8 6v2h16v-2c0-3.33-2.67-6-8-6Z" fill="currentColor"/></svg>
+      {userName}
+    </span>
+    <button id="logout-btn" class="btn ghost">Logout</button>
+  </div>
+</nav>
+
+<style>
+.nav {
+  height: var(--nav-height);
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.left .logo {
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: .3px;
+}
+.center { padding: 0 12px; }
+.search { width: 100%; }
+.right {
+  display: flex;
+  gap: 8px;
+  justify-self: end;
+  align-items: center;
+}
+.user { background: #f1f5f9; }
+@media (max-width: 768px) {
+  .nav { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .center { grid-column: 1 / -1; width: 100%; }
+}
+</style>
+
+<!-- Use external script to avoid inline script being transformed into an astro virtual entry -->
+<script src="/js/navbar.js" defer></script>

@@ -1,0 +1,108 @@
+---
+/**
+ * PUBLIC_INTERFACE
+ * Notes list with selection and delete actions.
+ * Props:
+ *  - notes: Note[]
+ *  - selectedId?: string
+ */
+import type { Note } from "../services/notes";
+const { notes = [], selectedId = '' } = Astro.props;
+---
+<div class="list card">
+  <div class="list-header">
+    <div class="title">
+      <strong>Notes</strong>
+      <span class="badge">{notes.length} total</span>
+    </div>
+    <div class="actions">
+      <a href="/notes/new" class="btn primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2h6Z" fill="#fff"/></svg>
+        New
+      </a>
+    </div>
+  </div>
+  <ul class="items">
+    {notes.length === 0 ? (
+      <div class="empty">No notes found</div>
+    ) : (
+      notes.map((n: Note) => (
+        <li class={"item " + (n.id === selectedId ? "active" : "")}>
+          <a class="row" href={`/notes/${encodeURIComponent(n.id)}${Astro.url.search}`}>
+            <div class="meta">
+              <div class="title">{n.title || '(Untitled)'}</div>
+              <div class="sub">
+                {n.category ? <span class="badge">{n.category}</span> : null}
+                {n.tags?.slice(0, 3).map((t) => <span class="tag">#{t}</span>)}
+              </div>
+            </div>
+            <div class="dates">
+              <span class="muted">{new Date(n.updatedAt).toLocaleString()}</span>
+            </div>
+          </a>
+          <div class="row-actions">
+            <button class="btn ghost danger" data-id={n.id} title="Delete">Delete</button>
+          </div>
+        </li>
+      ))
+    )}
+  </ul>
+</div>
+
+<style>
+.list { margin: 16px; padding: 0; display: flex; flex-direction: column; min-height: 0; }
+.list-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 12px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--card); z-index: 1;
+  border-top-left-radius: var(--radius); border-top-right-radius: var(--radius);
+}
+.items { list-style: none; margin: 0; padding: 0; overflow: auto; }
+.item { border-bottom: 1px solid var(--border); position: relative; }
+.row {
+  display: grid; grid-template-columns: 1fr auto; gap: 12px;
+  align-items: center; padding: 12px;
+}
+.item.active { background: rgba(52,152,219,.06); }
+.meta .title { font-weight: 600; margin-bottom: 6px; }
+.sub { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.tag { color: var(--color-primary); font-size: 12px; background: rgba(52,152,219,.08); padding: 2px 6px; border-radius: 999px; }
+.muted { color: var(--text-muted); font-size: 12px; }
+.row-actions {
+  position: absolute; right: 8px; top: 8px; display: none;
+}
+.item:hover .row-actions { display: block; }
+.btn.danger { color: #b91c1c; }
+.empty { padding: 20px; color: var(--text-muted); }
+</style>
+
+<script>
+  function init() {
+    document.querySelectorAll('.btn.danger').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        if (!id) return;
+        const ok = confirm('Delete this note? This cannot be undone.');
+        if (!ok) return;
+        try {
+          const notesSvc = await import('../services/notes.ts');
+          await notesSvc.deleteNote(id);
+          // refresh list after deletion
+          const url = new URL(window.location.href);
+          if (url.pathname.startsWith('/notes/')) {
+            url.pathname = '/';
+          }
+          window.location.href = url.toString();
+        } catch (err) {
+          alert('Failed to delete note.');
+          console.error(err);
+        }
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+</script>

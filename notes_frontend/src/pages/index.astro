@@ -1,0 +1,167 @@
+---
+import Layout from '../layouts/Layout.astro';
+import NavBar from '../components/NavBar.astro';
+import Sidebar from '../components/Sidebar.astro';
+import NotesList from '../components/NotesList.astro';
+import { getCurrentUser } from '../services/auth';
+
+const url = new URL(Astro.request.url);
+const search = url.searchParams.get('q') || undefined;
+const tag = url.searchParams.get('tag') || undefined;
+const category = url.searchParams.get('category') || undefined;
+---
+<Layout>
+  <link rel="stylesheet" href="/styles/global.css" />
+  <div id="app" class="container">
+    <NavBar client:load userName={getCurrentUser()?.name || getCurrentUser()?.username || 'User'} />
+    <div class="main-area">
+      <Sidebar
+        client:load
+        tags={{}}
+        categories={{}}
+        activeTag={tag || ''}
+        activeCategory={category || ''}
+      />
+      <div class="content">
+        <NotesList client:load notes={[]} selectedId={''} />
+        <div class="card info" id="editor-placeholder">
+          <div class="inner">
+            <h3>Pick a note from the list or create a new one.</h3>
+            <p class="muted">Use the search bar above, or filter by tags and categories.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    async function hydrate() {
+      const auth = await import("../services/auth.ts");
+      if (!auth.isAuthenticated()) {
+        window.location.href = '/login';
+        return;
+      }
+      const url = new URL(window.location.href);
+      const search = url.searchParams.get('q') || undefined;
+      const tag = url.searchParams.get('tag') || undefined;
+      const category = url.searchParams.get('category') || undefined;
+
+      try {
+        const { fetchNotes, extractTagsAndCategories } = await import("../services/notes.ts");
+        const data = await fetchNotes({ search, tag, category });
+        const { tags, categories } = extractTagsAndCategories(data);
+
+        // Update Sidebar
+        const sidebar = document.querySelector('aside.sidebar');
+        if (sidebar) {
+          const tagSection = sidebar.querySelectorAll('.section')[0];
+          const catSection = sidebar.querySelectorAll('.section')[1];
+
+          function buildChips(container, entries, type, active) {
+            const chips = container.querySelector('.chips');
+            chips.innerHTML = '';
+            const keys = Object.keys(entries);
+            if (keys.length === 0) {
+              const div = document.createElement('div'); div.className = 'muted'; div.textContent = `No ${type}s`;
+              chips.appendChild(div); return;
+            }
+            for (const k of keys) {
+              const btn = document.createElement('button');
+              btn.className = 'chip' + (k === active ? ' active' : '');
+              btn.setAttribute('data-type', type);
+              btn.setAttribute('data-value', k);
+              btn.innerHTML = (type === 'tag' ? '#' : '') + k + ` <span class="count">${entries[k]}</span>`;
+              chips.appendChild(btn);
+            }
+          }
+          buildChips(tagSection, tags, 'tag', tag || '');
+          buildChips(catSection, categories, 'category', category || '');
+
+          // Rebind events
+          sidebar.querySelectorAll('.chip').forEach((el) => {
+            el.addEventListener('click', () => {
+              const type = el.getAttribute('data-type');
+              const value = el.getAttribute('data-value') || '';
+              const url = new URL(window.location.href);
+              if (type === 'tag') {
+                if (value) url.searchParams.set('tag', value);
+                else url.searchParams.delete('tag');
+              }
+              if (type === 'category') {
+                if (value) url.searchParams.set('category', value);
+                else url.searchParams.delete('category');
+              }
+              window.location.href = url.toString();
+            });
+          });
+        }
+
+        // Update NotesList
+        const list = document.querySelector('.list .items');
+        if (list) {
+          list.innerHTML = '';
+          if (data.length === 0) {
+            const div = document.createElement('div'); div.className = 'empty'; div.textContent = 'No notes found';
+            list.appendChild(div);
+          } else {
+            for (const n of data) {
+              const li = document.createElement('li'); li.className = 'item';
+              const href = `/notes/${encodeURIComponent(n.id)}${window.location.search}`;
+              li.innerHTML = `
+                <a class="row" href="${href}">
+                  <div class="meta">
+                    <div class="title">${n.title ? n.title.replace(/</g, '&lt;').replace(/>/g, '&gt;') : '(Untitled)'}</div>
+                    <div class="sub">
+                      ${n.category ? `<span class="badge">${n.category.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>` : ''}
+                      ${(n.tags || []).slice(0,3).map(t => `<span class="tag">#${String(t).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`).join('')}
+                    </div>
+                  </div>
+                  <div class="dates"><span class="muted">${new Date(n.updatedAt).toLocaleString()}</span></div>
+                </a>
+                <div class="row-actions">
+                  <button class="btn ghost danger" data-id="${n.id}">Delete</button>
+                </div>
+              `;
+              list.appendChild(li);
+            }
+          }
+          // bind delete
+          list.querySelectorAll('.btn.danger').forEach((btn) => {
+            btn.addEventListener('click', async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const id = btn.getAttribute('data-id');
+              if (!id) return;
+              const ok = confirm('Delete this note?');
+              if (!ok) return;
+              const { deleteNote } = await import('../services/notes');
+              await deleteNote(id);
+              window.location.reload();
+            });
+          });
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to load notes.');
+      }
+    }
+
+    function onSearchEvent() {
+      hydrate();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('notes:search', onSearchEvent);
+        hydrate();
+      });
+    } else {
+      document.addEventListener('notes:search', onSearchEvent);
+      hydrate();
+    }
+  </script>
+  <style>
+    .content { display: grid; grid-template-rows: 1fr auto; min-height: 0; }
+    .info { margin: 16px; }
+    .info .inner { padding: 16px; }
+  </style>
+</Layout>

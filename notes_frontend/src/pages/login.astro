@@ -1,0 +1,75 @@
+---
+/**
+ * PUBLIC_INTERFACE
+ * Login page for users to authenticate.
+ * Shows a form and calls backend /auth/login. On success, stores token and redirects to index.
+ */
+import Layout from "../layouts/Layout.astro";
+---
+<Layout>
+  <div class="login-wrap">
+    <form class="card form" id="login-form">
+      <h1>Welcome back</h1>
+      <p class="muted">Sign in to manage your notes</p>
+      <div class="field">
+        <label>Username</label>
+        <input class="input" type="text" id="username" placeholder="Enter username" required />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input class="input" type="password" id="password" placeholder="••••••••" required />
+      </div>
+      <button class="btn primary" type="submit" id="login-button">Login</button>
+      <div id="error" class="error" role="alert" aria-live="polite"></div>
+    </form>
+  </div>
+</Layout>
+
+<style>
+.login-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, rgba(52,152,219,.08), transparent 30%), var(--bg);
+  padding: 16px;
+}
+.form {
+  width: 100%;
+  max-width: 420px;
+  padding: 20px;
+}
+h1 { margin: 0; }
+.muted { color: var(--text-muted); margin: 6px 0 14px; }
+.field + .field { margin-top: 12px; }
+.error { margin-top: 12px; color: #b91c1c; min-height: 20px; }
+</style>
+
+<script type="module">
+  import { login } from "../services/auth.ts";
+
+  function init() {
+    const form = document.getElementById('login-form');
+    const error = document.getElementById('error');
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      error!.textContent = '';
+      const username = (document.getElementById('username') as HTMLInputElement).value.trim();
+      const password = (document.getElementById('password') as HTMLInputElement).value;
+      if (!username || !password) {
+        error!.textContent = 'Please enter both username and password.';
+        return;
+      }
+      try {
+        await login({ username, password });
+        window.location.href = '/';
+      } catch (err) {
+        console.error(err);
+        error!.textContent = 'Login failed. Please check your credentials.';
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+</script>

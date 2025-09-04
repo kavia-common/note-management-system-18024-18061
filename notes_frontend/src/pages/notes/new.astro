@@ -1,0 +1,65 @@
+---
+/**
+ * PUBLIC_INTERFACE
+ * New note page: shows empty NoteEditor for creating a note.
+ */
+import Layout from '../../layouts/Layout.astro';
+import NavBar from '../../components/NavBar.astro';
+import Sidebar from '../../components/Sidebar.astro';
+import NoteEditor from '../../components/NoteEditor.astro';
+---
+<Layout>
+  <link rel="stylesheet" href="/styles/global.css" />
+  <div id="app" class="container">
+    <NavBar client:load userName="User" />
+    <div class="main-area">
+      <Sidebar client:load tags={{}} categories={{}} />
+      <div class="content">
+        <NoteEditor client:load />
+      </div>
+    </div>
+  </div>
+  <script>
+    async function init() {
+      const auth = await import("../../services/auth.ts");
+      if (!auth.isAuthenticated()) {
+        window.location.href = '/login';
+        return;
+      }
+      try {
+        const notesSvc = await import("../../services/notes.ts");
+        const list = await notesSvc.fetchNotes({});
+        const { tags, categories } = notesSvc.extractTagsAndCategories(list);
+
+        const sidebar = document.querySelector('aside.sidebar');
+        if (sidebar) {
+          const tagSection = sidebar.querySelectorAll('.section')[0];
+          const catSection = sidebar.querySelectorAll('.section')[1];
+          function buildChips(container, entries, type) {
+            const chips = container.querySelector('.chips');
+            chips.innerHTML = '';
+            const keys = Object.keys(entries);
+            if (keys.length === 0) {
+              const div = document.createElement('div'); div.className = 'muted'; div.textContent = `No ${type}s`;
+              chips.appendChild(div); return;
+            }
+            for (const k of keys) {
+              const btn = document.createElement('button');
+              btn.className = 'chip';
+              btn.setAttribute('data-type', type);
+              btn.setAttribute('data-value', k);
+              btn.innerHTML = (type === 'tag' ? '#' : '') + k + ` <span class="count">${entries[k]}</span>`;
+              chips.appendChild(btn);
+            }
+          }
+          buildChips(tagSection, tags, 'tag');
+          buildChips(catSection, categories, 'category');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+  </script>
+</Layout>

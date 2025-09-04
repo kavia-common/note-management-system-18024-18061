@@ -1,0 +1,2 @@
+/* Built file proxy to keep import path consistent if static server serves from public */
+@import "../../src/styles/global.css";

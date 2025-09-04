@@ -1,0 +1,118 @@
+---
+/**
+ * PUBLIC_INTERFACE
+ * Note detail page: loads note by id (client-side) and renders editor.
+ */
+import Layout from '../../layouts/Layout.astro';
+import NavBar from '../../components/NavBar.astro';
+import Sidebar from '../../components/Sidebar.astro';
+import NoteEditor from '../../components/NoteEditor.astro';
+
+const { id } = Astro.params;
+---
+<Layout>
+  <link rel="stylesheet" href="/styles/global.css" />
+  <div id="app" class="container">
+    <NavBar client:load userName="User" />
+    <div class="main-area">
+      <Sidebar client:load tags={{}} categories={{}} />
+      <div class="content">
+        <div id="editor-mount">
+          <div class="card info">
+            <div class="inner"><p class="muted">Loading note...</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    import NoteEditor from "../../components/NoteEditor.astro";
+
+    async function bootstrap() {
+      const auth = await import("../../services/auth.ts");
+      if (!auth.isAuthenticated()) {
+        window.location.href = '/login';
+        return;
+      }
+      const id = <?=JSON.stringify(id)?>;
+
+      // Load note and surrounding list/meta
+      const url = new URL(window.location.href);
+      const search = url.searchParams.get('q') || undefined;
+      const tag = url.searchParams.get('tag') || undefined;
+      const category = url.searchParams.get('category') || undefined;
+
+      try {
+        const notesSvc = await import("../../services/notes.ts");
+        const [note, list] = await Promise.all([
+          notesSvc.getNote(id),
+          notesSvc.fetchNotes({ search, tag, category }),
+        ]);
+        const { tags, categories } = notesSvc.extractTagsAndCategories(list);
+
+        // Update Sidebar quick
+        const sidebar = document.querySelector('aside.sidebar');
+        if (sidebar) {
+          const tagSection = sidebar.querySelectorAll('.section')[0];
+          const catSection = sidebar.querySelectorAll('.section')[1];
+          function buildChips(container, entries, type, active) {
+            const chips = container.querySelector('.chips');
+            chips.innerHTML = '';
+            const keys = Object.keys(entries);
+            if (keys.length === 0) {
+              const div = document.createElement('div'); div.className = 'muted'; div.textContent = `No ${type}s`;
+              chips.appendChild(div); return;
+            }
+            for (const k of keys) {
+              const btn = document.createElement('button');
+              btn.className = 'chip' + (k === active ? ' active' : '');
+              btn.setAttribute('data-type', type);
+              btn.setAttribute('data-value', k);
+              btn.innerHTML = (type === 'tag' ? '#' : '') + k + ` <span class="count">${entries[k]}</span>`;
+              chips.appendChild(btn);
+            }
+          }
+          buildChips(tagSection, tags, 'tag', tag || '');
+          buildChips(catSection, categories, 'category', category || '');
+        }
+
+        // Render editor component by replacing the placeholder
+        const mount = document.getElementById('editor-mount');
+        if (mount) {
+          mount.innerHTML = '';
+          // Create a container and hydrate editor markup
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = `<?=
+            await Astro.renderToString(NoteEditor, { note: { id: 'ID', title: 'TITLE', content: 'CONTENT', tags: [], category: '', createdAt: '', updatedAt: '' } })
+          ?>`;
+          // Replace placeholders with actual data
+          wrapper.innerHTML = wrapper.innerHTML
+            .replace('ID', String(note.id ?? ''))
+            .replace('TITLE', (note.title ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;'))
+            .replace('CONTENT', (note.content ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+          mount.appendChild(wrapper.firstElementChild!);
+
+          // Update tags/category inputs manually (in case of special chars)
+          const tagsInput = document.getElementById('tags');
+          if (tagsInput) tagsInput.value = (note.tags || []).join(',');
+          const categoryInput = document.getElementById('category');
+          if (categoryInput) categoryInput.value = note.category || '';
+        }
+      } catch (err) {
+        console.error(err);
+        const mount = document.getElementById('editor-mount');
+        if (mount) {
+          mount.innerHTML = '<div class="card info"><div class="inner"><p class="muted">Failed to load note.</p></div></div>';
+        }
+      }
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootstrap);
+    else bootstrap();
+  </script>
+  <style>
+    .content { min-height: 0; }
+    .info { margin: 16px; }
+    .info .inner { padding: 16px; }
+  </style>
+</Layout>

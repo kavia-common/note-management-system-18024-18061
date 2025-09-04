@@ -1,0 +1,21 @@
+---
+import ThemeToggle from '../components/ThemeToggle.astro';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>Notes App</title>
+    <link rel="stylesheet" href="/styles/global.css" />
+    <meta name="theme-color" content="#3498db" />
+  </head>
+  <body>
+    <!-- Keeping theme toggle for users, but default is light theme -->
+    <ThemeToggle />
+    <slot />
+  </body>
+</html>
